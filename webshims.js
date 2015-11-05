@@ -181,10 +181,18 @@ function createStructuredCues(_0x3818x26, _0x3818x27, _0x3818x28) {
     return _0x3818x19;
 }
 window.addEventListener('init', function(_0x3818x27) {
-    console.log(_0x3818x27)
+    console.log(_0x3818x27);
 });
+
 $(document).ready(function() {
     $('#but-run').click(function() {
+        if (!checkInput()) {
+            $('#input-link').val('Link nhap vao bi loi!!!');
+            $('#input-link').focus(function() {
+                $('#input-link').val('');
+            });
+            return;
+        }
         // clear all old subtitle
         $('span', $('#subtitles-container')).remove();
         // run get new link
@@ -192,8 +200,32 @@ $(document).ready(function() {
         //loadingSubtitle(subContainer);
     });
 
+    $('#input-link').keydown(function(ev) {
+        if (ev.keyCode == '13') {
+            if (!checkInput()) {
+                $('#input-link').val('Link nhap vao bi loi!!!');
+                $('#input-link').focus(function() {
+                    $('#input-link').val('');
+                });
+                return;
+            }
+            // clear all old subtitle
+            $('span', $('#subtitles-container')).remove();
+            // run get new link
+            getlink($('#input-link').val(), loadingSubtitle);
+            //loadingSubtitle(subContainer);
+        }
+    });
 });
 
+function checkInput() {
+    var regx = /^http:\/\/[w.]*studyphim\.vn\/movies\/[\w-]+\/play\?episode=[\d]+/;
+    if (regx.exec($('#input-link').val()))
+        return true;
+    else
+        return false;
+
+}
 
 function bufferArrayToString(buff, callback, callback2) {
     var blob = new Blob([buff]);
