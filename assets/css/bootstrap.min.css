@@ -2036,8 +2036,18 @@ pre code {
     margin-left: 0;
   }
 }
-
+.auto-height{
+  height: auto!important;
+}
 @media (min-width:992px) {
+  .col-md-flex{
+    display: flex;
+    display: -webkit-flex;
+  }
+  .col-md-fullheight{
+    flex: 1;
+  }
+  
   .col-md-1,.col-md-2,.col-md-3,.col-md-4,.col-md-5,.col-md-6,.col-md-7,.col-md-8,.col-md-9,.col-md-10,.col-md-11,.col-md-12 {
     float: left;
   }
