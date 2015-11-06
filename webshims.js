@@ -185,6 +185,7 @@ window.addEventListener('init', function(_0x3818x27) {
 });
 
 $(document).ready(function() {
+    // loadingSubtitle(subContainer);
     $('#but-run').click(function() {
         if (!checkInput()) {
             $('#input-link').val('Link nhap vao bi loi!!!');
@@ -247,15 +248,15 @@ function makesub(result, callback) {
     var _sub;
     while (i < _subslen) {
         //console.log(_subs[i].charCodeAt(0),_subs[i].charCodeAt(1));
-        _sub = _reg.exec(_subs[i].replace(/\r|\0/g, ''));
+        _sub = _reg.exec(_subs[i]);
         if (_sub) {
             var _start = 3600 * _sub[1] + 60 * _sub[2] + 1 * _sub[3] + parseFloat("." + _sub[4]);
             var _stop = 3600 * _sub[5] + 60 * _sub[6] + 1 * _sub[7] + parseFloat("." + _sub[8]);
             if (i + 1 < _subslen) {
                 var j = i + 1;
                 var _text = "";
-                while (_subs[j] && _subs[j].replace(/\r|\0/g, '') != '' && !_reg.exec(_subs[j].replace(/\r|\0/g, ''))) {
-                    _text = _text + _subs[j].replace(/\r|\0/g, '');
+                while (_subs[j] && _subs[j] != '' && !_reg.exec(_subs[j])) {
+                    _text = _text + _subs[j];
                     _text = _text + " ";
                     j++;
                 }

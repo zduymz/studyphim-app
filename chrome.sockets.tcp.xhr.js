@@ -1,6 +1,5 @@
 (function() {
     'use strict';
-
     var ChromeSocketsXMLHttpRequest = chrome.sockets.tcp.xhr = function() {
         Object.defineProperties(this, {
             options: {
@@ -570,7 +569,8 @@
             return;
         }
         this.disconnect();
-        this.options.rawdata.toString(this.parseResponse.bind(this));
+        // this.options.rawdata.toString(this.parseResponse.bind(this));
+        this.parseResponse(this.options.rawdata);
         /*this.error({
             error: 'receive error',
             resultCode: info.resultCode
@@ -592,9 +592,32 @@
             this.options.timer.recvid = null;
         }
 
-        if (this.options.rawdata == null)
-            this.options.rawdata = info.data;
-        else {
+        // first response hit
+        if (this.options.rawdata == null) {
+            //my fix header
+            //
+            // first packet received from server always contained header
+            var rh = new Uint8Array(info.data);
+            var headerEndPos = 0;
+            rh.some(function(v, i) {
+                if (v == '13' && rh[i + 1] == '10' && rh[i + 2] == '13' && rh[i + 3] == '10') {
+                    headerEndPos = i;
+                    return true;
+                }
+            });
+            //convert header from bytes to String
+            //Note: not use ArrayBuffer.toString() -> because it's async
+            var header = String.fromCharCode.apply(null, rh.slice(0, headerEndPos));
+
+            // need check data is
+            this.options.response.headersText = header;
+            this.options.rawdata = info.data.slice(headerEndPos + 4, info.data.byteLength); // +4: CRLF
+        } else {
+            //chunked data
+            //  _________________________________________
+            // | length (unknown bytes) | CRLF (2bytes) | data|
+            // `````````````````````````````````````````
+            //
             var tmp = new Uint8Array(this.options.rawdata.byteLength + info.data.byteLength);
             tmp.set(new Uint8Array(this.options.rawdata), 0);
             tmp.set(new Uint8Array(info.data), this.options.rawdata.byteLength);
@@ -606,36 +629,6 @@
      * internal methods
      */
     ChromeSocketsXMLHttpRequest.prototype.parseResponse = function(response) {
-        // detect CRLFx2 position
-        var responseMatch = response.match(/\r\n\r\n/);
-
-        // something went wrong
-        if (responseMatch === null) {
-            /*this.error({
-                error: 'could not parse response'
-            });
-
-            return;*/
-            this.options.response.headersText = response;
-            this.responseText = "";
-        } else {
-            // slice the headers up to CRLFx2
-            this.options.response.headersText = response.slice(0, responseMatch.index);
-
-            // slice the body right after CRLFx2 and set the response object
-            if (this.responseType == "arraybuffer")
-                this.responseText = this.options.rawdata.slice(responseMatch.index + 4);
-            else {
-                // this.responseText = response.slice(responseMatch.index + 4);
-                this.responseText = response.slice(responseMatch.index + 4 + 6);
-                //my fix
-                // var tmp = new Uint8Array(this.options.rawdata.byteLength - responseMatch);
-                // tmp.set(new Uint8Array(this.options.rawdata), 0);
-                // tmp.set(new Uint8Array(info.data), this.options.rawdata.byteLength);
-                // this.options.rawdata = tmp.buffer;
-                this.responseArrayBuffer = this.options.rawdata.slice(responseMatch.index + 10);
-            }
-        }
 
         // parse headers
         var headerLines = this.options.response.headersText.split('\r\n');
@@ -665,6 +658,55 @@
         // save content length
         if (this.options.response.headers.hasOwnProperty("Content-Length"))
             this.options.contentlen = this.options.response.headers['Content-Length'];
+
+
+        // if data is chunked
+        if (this.options.response.headers["Transfer-Encoding"] == "chunked") {
+            // 4 first bytes: chunk length
+            // next 2 bytes: CRLF
+            var dataLen = this.options.rawdata.byteLength;
+            var tmp = new Uint8Array(this.options.rawdata.byteLength);
+            var len = 0;
+            var CRLF = 2;
+            var offset = 0;
+            while (len < dataLen) {
+                //detect last chunk
+                // 0 + CRLF + CRLF end
+
+                // get first 10 bytes to look up CRLF
+                var chunk10 = String.fromCharCode.apply(null, new Uint8Array(this.options.rawdata.slice(len, len + 10)));
+                var chunkLen_len = chunk10.indexOf('\r\n');
+
+                var chunkLen = parseInt('0x' + String.fromCharCode.apply(null, new Uint8Array(this.options.rawdata.slice(len, len + chunkLen_len))));
+                if (chunkLen > 0) {
+                    var start = len + chunkLen_len + CRLF;
+                    var stop = len + chunkLen_len + CRLF + chunkLen;
+                    tmp.set(new Uint8Array(this.options.rawdata.slice(start, stop)), offset);
+                    len = len + chunkLen_len + CRLF + chunkLen + CRLF; // plus more 2 bytes CRLF end
+                    offset =  offset + chunkLen;
+                } else {
+                    break;
+                }
+            }
+
+            // slice the body right after CRLFx2 and set the response object
+            if (this.responseType == "arraybuffer"){
+                //this.responseText = this.options.rawdata.slice(responseMatch.index + 4);
+            }
+            else {
+                this.responseText = String.fromCharCode.apply(null, new Uint8Array(tmp.buffer));
+                //this.responseText = response.slice(responseMatch.index + 4 + 6);
+                //my fix
+                // var tmp = new Uint8Array(this.options.rawdata.byteLength - responseMatch);
+                // tmp.set(new Uint8Array(this.options.rawdata), 0);
+                // tmp.set(new Uint8Array(info.data), this.options.rawdata.byteLength);
+                // this.options.rawdata = tmp.buffer;
+                this.responseArrayBuffer = tmp.buffer;
+            }
+        } else {
+            this.responseText = String.fromCharCode.apply(null, new Uint8Array(this.options.rawdata));
+        }
+
 
         this.processResponse();
     };
